@@ -11,6 +11,12 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
+  // 兼容 vercel.json 的转发：/api?__p=config → /api/config（Vercel 以 Node 服务模式运行本文件时会走到这里）
+  const sub = url.searchParams.get('__p');
+  if (url.pathname.replace(/\/+$/, '') === '/api' && sub != null) {
+    url.searchParams.delete('__p');
+    url.pathname = '/api/' + sub.replace(/^\/+/, '');
+  }
   if (!url.pathname.startsWith('/api/')) {
     let p = path.normalize(path.join(PUBLIC_DIR, url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname)));
     if (!p.startsWith(PUBLIC_DIR) || !fs.existsSync(p) || !fs.statSync(p).isFile()) p = path.join(PUBLIC_DIR, 'index.html');
