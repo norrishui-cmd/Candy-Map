@@ -367,18 +367,24 @@ document.querySelectorAll('[data-scope]').forEach(b => b.addEventListener('click
 
 // ================= 账号（免短信：起个昵称即可，恢复码用于换设备） =================
 function loginView() {
-  return `<h1 class="big">给这趟讨糖，起个名字</h1><p class="muted">起个昵称就能开始，记录收获，和邻居一起登上糖果榜。</p>
-    <div class="field"><label>榜单昵称</label><input class="input" id="lgNick" maxlength="16" placeholder="例如：南瓜小队"><p class="hint">昵称会公开显示，请勿填写手机号。不填会随机起一个。</p></div>
+  return `<h1 class="big">给这趟讨糖，起个名字</h1><p class="muted">留个手机号就能开始，记录收获，和邻居一起登上糖果榜。</p>
+    <div class="field"><label>手机号</label><input class="input" id="lgPhone" type="tel" inputmode="numeric" maxlength="11" placeholder="请输入 11 位手机号"><p class="hint">不会公开显示，也不需要验证码。</p></div>
+    <div class="field"><label>榜单昵称 <small>选填</small></label><input class="input" id="lgNick" maxlength="16" placeholder="例如：南瓜小队"><p class="hint">昵称会公开显示，不填会随机起一个。</p></div>
+    <label class="check"><input type="checkbox" id="lgAgree"><span>我已阅读并同意<a class="ulink" data-act="privacy" style="font-size:14px">个人信息说明</a>，同意活动组织者保存我的手机号，用于活动联系和账号找回。</span></label>
+    <div id="lgPriv" class="hidden" style="background:var(--panel2);border-radius:16px;padding:14px 16px;margin-bottom:14px">${PRIVACY}</div>
     <button class="btn primary" id="lgGo">开始讨糖</button>
-    <div id="lgRec" class="hidden"><div class="field"><label>恢复码</label><input class="input" id="lgCode" maxlength="9" placeholder="8 位恢复码" style="text-transform:uppercase"></div><button class="btn dim" id="lgRecGo">找回账号</button></div>
-    <p style="margin-top:20px"><a class="ulink" id="lgRecShow">在别的手机上用过？用恢复码找回</a></p>
+    <div id="lgRec" class="hidden"><div class="field"><label>恢复码</label><input class="input" id="lgCode" maxlength="9" placeholder="8 位恢复码" style="text-transform:uppercase"><p class="hint">注册时在「我的」页面显示过。</p></div><button class="btn dim" id="lgRecGo">找回账号</button></div>
+    <p style="margin-top:20px"><a class="ulink" id="lgRecShow">注册过了？用恢复码找回</a></p>
     <p style="margin-top:20px"><a class="ulink" data-act="notice">参与须知</a></p>`;
 }
 async function setToken(t) { S.token = t; localStorage.setItem('cm_token', t); await loadMe(); }
 function bindLogin(root, done) {
   root.querySelector('#lgGo').onclick = async () => {
-    try { await setToken((await api('/api/auth/anon', { nickname: root.querySelector('#lgNick').value })).token); toast('欢迎，' + S.me.nickname); done(); }
-    catch (err) { toast(err.message); }
+    const phone = root.querySelector('#lgPhone').value.trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) return toast('请输入正确的 11 位手机号');
+    if (!root.querySelector('#lgAgree').checked) return toast('请先勾选同意个人信息说明');
+    try { await setToken((await api('/api/auth/register', { phone, nickname: root.querySelector('#lgNick').value, agree: true })).token); toast('欢迎，' + S.me.nickname); done(); }
+    catch (err) { toast(err.message, 3000); if (/恢复码/.test(err.message)) root.querySelector('#lgRec').classList.remove('hidden'); }
   };
   root.querySelector('#lgRecShow').onclick = () => root.querySelector('#lgRec').classList.toggle('hidden');
   root.querySelector('#lgRecGo').onclick = async () => {
@@ -414,6 +420,7 @@ async function renderMe() {
     ${opts.length > 1 ? `<div class="field"><label>地图服务 <small>当前：${{ amap: '高德', baidu: '百度', lite: '演示地图' }[S.provider]}</small></label><div class="scope">${opts.map(([k, v]) => `<button class="mini ${prefs === k ? 'on' : ''}" data-mapset="${k}">${v}</button>`).join('')}</div></div>` : ''}
     <hr><div class="field"><label>我的恢复码 <small>换手机或清了浏览器数据时用它找回账号</small></label>
     <div class="code-box" style="margin-top:0"><b style="font-size:24px;letter-spacing:4px">${esc(me.recovery || '')}</b><button class="btn dim sm" style="width:auto;padding:0 16px" id="copyRec">复制</button></div><p class="hint">请截图或记下来，丢了无法找回。</p></div>
+    <p class="muted small">绑定手机：${esc(me.phone)}</p>
     <div><a class="olink" id="logout">退出当前账号</a></div>
     <p style="margin-top:20px"><a class="ulink" data-act="notice">参与须知</a></p>`;
   root.querySelector('#saveNick').onclick = async () => { try { await api('/api/me/nickname', { nickname: root.querySelector('#nick').value }); toast('已保存'); renderMe(); } catch (e) { toast(e.message); } };
@@ -456,7 +463,7 @@ async function renderHouse(edit) {
     <div class="row"><div class="field"><label>开始发糖</label><input class="input" id="fStart" type="datetime-local" value="${toLocalInput(h ? h.startAt : ds)}"></div>
     <div class="field"><label>结束</label><input class="input" id="fEnd" type="datetime-local" value="${toLocalInput(h ? h.endAt : de)}"></div></div>
     <div class="field"><label>准备了什么糖 <small>选填</small></label><input class="input" id="fCandy" maxlength="40" placeholder="例如：独立包装软糖、巧克力" value="${esc(h ? h.candy : '')}"><p class="hint">建议注明是否含坚果、乳制品等常见过敏原。</p></div>
-    <label class="check"><input type="checkbox" id="fAgree" ${h ? 'checked' : ''}>我已阅读并同意<a class="ulink" data-act="notice" style="font-size:14px">参与须知</a>，会准备包装完好、在保质期内的食品。</label>
+    <label class="check"><input type="checkbox" id="fAgree" ${h ? 'checked' : ''}><span>我已阅读并同意<a class="ulink" data-act="notice" style="font-size:14px">参与须知</a>，会准备包装完好、在保质期内的食品。</span></label>
     <button class="btn primary" id="fSave">${h ? '保存修改' : '保存糖果屋'}</button>
     ${h ? '<button class="btn dim" id="fCancel" style="margin-top:10px">取消</button>' : ''}`;
   const syncLoc = () => { const b = root.querySelector('#fLoc'); if (S.form.lat) { b.classList.add('set'); b.innerHTML = `📍 ${esc([S.form.city, S.form.district, S.form.community].filter(Boolean).join(' · ') || '已选择位置')}<br><span class="muted small">点击重新选择</span>`; } };
@@ -530,12 +537,17 @@ function share(text, hash = '') {
   if (navigator.share) return navigator.share({ title: '万圣节讨糖地图', text, url }).catch(() => {});
   (navigator.clipboard ? navigator.clipboard.writeText(text + ' ' + url) : Promise.reject()).then(() => toast('链接已复制，发给邻居吧')).catch(() => toast(url, 3000));
 }
+const PRIVACY = `<h3>个人信息说明</h3>
+<p class="p"><b>收集什么</b><br>手机号、榜单昵称，以及你设置糖果屋时填写的位置和楼栋信息。</p>
+<p class="p"><b>用来做什么</b><br>手机号用于活动组织者与你联系（如活动通知、糖果屋信息核实）和账号找回，不会在页面上公开显示，也不会提供给其他用户。</p>
+<p class="p"><b>保存多久</b><br>活动结束后最长保存 12 个月。你可以随时联系活动组织者要求删除。</p>
+<p class="p"><b>你的权利</b><br>不同意本说明可以不注册，只浏览地图和榜单不受影响。</p>`;
 const NOTICE = `<h3>参与须知</h3>
 <p class="p">这是一份给家长和发糖邻居的约定。请完整阅读，尤其留意儿童陪同、食品安全和平台责任范围。</p>
 <p class="p"><b>孩子必须由成人全程陪同</b><br>未成年人须由监护人或经监护人委托的成年人全程陪同，不得独自上门讨糖。陪同人应照看孩子，注意夜间出行、道路、电梯和楼梯安全。优先在住户公布的公共区域（大堂、门口）领取，不进入陌生人家中。</p>
 <p class="p"><b>食品安全</b><br>发糖家庭请提供来源可靠、独立包装完好、在保质期内的食品，不提供自制食品、散装食品和酒精类食品。家长请检查配料、过敏原及保质期后再让孩子食用。</p>
 <p class="p"><b>尊重邻居</b><br>只拜访地图上「发糖中」的糖果屋，按住户公布的接待位置和时间前往；熄灯或暂停时请勿打扰。保持安静，遵守小区管理规定。</p>
-<p class="p"><b>信息与隐私</b><br>门牌和单元默认不公开，住户可自行选择。昵称会在榜单公开显示，请勿填写手机号等个人信息。</p>
+<p class="p"><b>信息与隐私</b><br>门牌和单元默认不公开，住户可自行选择。昵称会在榜单公开显示；注册用的手机号不公开，用途见「个人信息说明」。</p>
 <p class="p"><b>平台责任</b><br>平台提供信息展示与查找，不保证住户信息的真实性、实时性及食品安全，请自行核实。平台依法应承担的责任不因此免除。</p>
 <button class="btn dim" data-close>我知道了</button>`;
 
@@ -562,6 +574,7 @@ document.addEventListener('click', e => {
   if (act === 'locate') locate().then(p => p && S.map.setCenter(p, 17));
   if (act === 'toggleSheet') { const s = $('#sheet'); s.classList.toggle('open'); $('#sheetToggle').textContent = s.classList.contains('open') ? '收起' : '展开'; }
   if (act === 'notice') { e.preventDefault(); modal(NOTICE); }
+  if (act === 'privacy') { e.preventDefault(); const box = a.closest('.content, .modal').querySelector('#lgPriv'); if (box) box.classList.toggle('hidden'); else modal(PRIVACY + '<button class="btn dim" data-close>我知道了</button>'); }
   if (act === 'closePicker') $('#picker').classList.add('hidden');
   if (act === 'confirmPick') { if (!pickInfo.lat) return; $('#picker').classList.add('hidden'); pickCb && pickCb(Object.assign({}, pickInfo)); }
 });

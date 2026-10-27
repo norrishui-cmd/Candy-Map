@@ -11,6 +11,13 @@ module.exports = async (req, res) => {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
   const ip = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
   const [code, obj] = await handle({ method: req.method, pathname, query: url.searchParams, body, headers: req.headers, ip });
+  if (obj && obj.__raw != null) {
+    res.statusCode = code;
+    res.setHeader('Content-Type', obj.__type);
+    res.setHeader('Content-Disposition', `attachment; filename="${obj.__file}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.end(obj.__raw);
+  }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.statusCode = code;

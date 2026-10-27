@@ -1,4 +1,9 @@
 {
+  "framework": null,
+  "buildCommand": "",
+  "installCommand": "",
+  "outputDirectory": "public",
+  "regions": ["hkg1"],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api?__p=:path*" }
   ]

@@ -23,6 +23,10 @@ http.createServer((req, res) => {
     let body = {}; try { body = raw ? JSON.parse(raw) : {}; } catch (_) {}
     const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
     const [code, obj] = await handle({ method: req.method, pathname: url.pathname, query: url.searchParams, body, headers: req.headers, ip });
+    if (obj && obj.__raw != null) {
+      res.writeHead(code, { 'Content-Type': obj.__type, 'Content-Disposition': `attachment; filename="${obj.__file}"`, 'Cache-Control': 'no-store' });
+      return res.end(obj.__raw);
+    }
     res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(obj));
   });

@@ -28,13 +28,18 @@ node server.js     # http://localhost:3000，数据存在 data.json
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | 在 Vercel Storage 里连接 Upstash Redis 后自动生成，不用手填 |
 | `AMAP_KEY` / `AMAP_SECURITY_CODE` | 高德 Web 端（JS API）Key 和安全密钥 |
 | `BAIDU_AK` | 可选，百度地图 JS API GL 的 AK |
+| `ADMIN_TOKEN` | 导出用户名单用的口令，自己编一串至少 16 位的字母数字 |
 | `CHECKIN_RADIUS_M` | 可选，打卡距离限制，默认 300 米 |
 
 改了环境变量后需要重新部署一次才生效。
 
 ## 账号
 
-免短信：第一次需要账号时起个昵称即可，账号存在浏览器里。「我的」页面显示 8 位恢复码，换手机或清了浏览器数据时，用恢复码找回。
+注册需填手机号（不发验证码）并勾选同意个人信息说明，昵称选填。账号存在浏览器里；同一手机号不能重复注册，换手机时用「我的」页面上的 8 位恢复码找回。
+
+## 导出用户名单
+
+浏览器打开 `https://你的域名/api/admin/export?token=你的ADMIN_TOKEN`，会下载 `candy-map-users.csv`（昵称、手机号、注册时间、糖果屋、打卡次数），可直接用 Excel 打开。口令不要外传。
 
 ## 核心规则
 
