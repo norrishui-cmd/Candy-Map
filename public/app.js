@@ -331,7 +331,7 @@ function navTo(h) {
 }
 
 async function checkin(h) {
-  if (!S.token) { closeModal(); toast('先登录才能记录收获哦'); return go('me'); }
+  if (!S.token) { await ensureAccount(); }
   const body = modal(`<h3>🍭 打卡收糖</h3><p class="p">向「${esc(h.name)}」的主人要 4 位打卡暗号，输入后就能记录这次收获。</p>
     <div class="code-input"><input id="ciCode" inputmode="numeric" maxlength="4" pattern="\\d*" placeholder="····"></div>
     <button class="btn primary" id="ciGo">确认打卡</button>`, { center: true });
@@ -365,33 +365,34 @@ async function renderRank() {
 document.querySelectorAll('[data-rank]').forEach(b => b.addEventListener('click', () => { S.rankType = b.dataset.rank; renderRank(); }));
 document.querySelectorAll('[data-scope]').forEach(b => b.addEventListener('click', () => { S.rankScope = b.dataset.scope; renderRank(); }));
 
-// ================= 登录 =================
-function loginView(after) {
-  return `<h1 class="big">给这趟讨糖，起个名字</h1><p class="muted">登录后记录收获，和邻居一起登上糖果榜。</p>
-    <div class="field"><label>手机号</label><input class="input" id="lgPhone" type="tel" inputmode="numeric" maxlength="11" placeholder="请输入手机号"></div>
-    <div class="field"><label>验证码</label><div class="row"><input class="input" id="lgCode" inputmode="numeric" maxlength="6" placeholder="6 位验证码" style="flex:1.4"><button class="btn dim" id="lgSend" style="height:52px">获取验证码</button></div>
-    <p class="hint" id="lgHint"></p></div>
-    <button class="btn primary" id="lgGo" data-after="${after || ''}">手机号验证码登录</button>
-    <p style="margin-top:28px"><a class="ulink" data-act="notice">参与须知</a></p>`;
+// ================= 账号（免短信：起个昵称即可，恢复码用于换设备） =================
+function loginView() {
+  return `<h1 class="big">给这趟讨糖，起个名字</h1><p class="muted">起个昵称就能开始，记录收获，和邻居一起登上糖果榜。</p>
+    <div class="field"><label>榜单昵称</label><input class="input" id="lgNick" maxlength="16" placeholder="例如：南瓜小队"><p class="hint">昵称会公开显示，请勿填写手机号。不填会随机起一个。</p></div>
+    <button class="btn primary" id="lgGo">开始讨糖</button>
+    <div id="lgRec" class="hidden"><div class="field"><label>恢复码</label><input class="input" id="lgCode" maxlength="9" placeholder="8 位恢复码" style="text-transform:uppercase"></div><button class="btn dim" id="lgRecGo">找回账号</button></div>
+    <p style="margin-top:20px"><a class="ulink" id="lgRecShow">在别的手机上用过？用恢复码找回</a></p>
+    <p style="margin-top:20px"><a class="ulink" data-act="notice">参与须知</a></p>`;
 }
+async function setToken(t) { S.token = t; localStorage.setItem('cm_token', t); await loadMe(); }
 function bindLogin(root, done) {
-  let cd = 0, timer;
-  root.querySelector('#lgSend').onclick = async e => {
-    if (cd) return; const phone = root.querySelector('#lgPhone').value.trim();
-    if (!/^1\d{10}$/.test(phone)) return toast('请输入正确的手机号');
-    try {
-      const r = await api('/api/auth/sms', { phone });
-      if (r.devCode) { root.querySelector('#lgHint').textContent = '开发模式验证码：' + r.devCode; root.querySelector('#lgCode').value = r.devCode; }
-      else toast('验证码已发送');
-      cd = 60; const btn = e.target; timer = setInterval(() => { cd--; btn.textContent = cd ? cd + 's' : '获取验证码'; if (!cd) clearInterval(timer); }, 1000);
-    } catch (err) { toast(err.message); }
-  };
   root.querySelector('#lgGo').onclick = async () => {
-    const phone = root.querySelector('#lgPhone').value.trim(), code = root.querySelector('#lgCode').value.trim();
-    if (!/^1\d{10}$/.test(phone) || !/^\d{6}$/.test(code)) return toast('请填写手机号和 6 位验证码');
-    try { const r = await api('/api/auth/login', { phone, code }); S.token = r.token; localStorage.setItem('cm_token', r.token); clearInterval(timer); await loadMe(); toast('登录成功'); done(); }
+    try { await setToken((await api('/api/auth/anon', { nickname: root.querySelector('#lgNick').value })).token); toast('欢迎，' + S.me.nickname); done(); }
     catch (err) { toast(err.message); }
   };
+  root.querySelector('#lgRecShow').onclick = () => root.querySelector('#lgRec').classList.toggle('hidden');
+  root.querySelector('#lgRecGo').onclick = async () => {
+    try { await setToken((await api('/api/auth/recover', { code: root.querySelector('#lgCode').value })).token); toast('已找回：' + S.me.nickname); done(); }
+    catch (err) { toast(err.message); }
+  };
+}
+// 需要账号的操作前调用：没有账号就弹出起昵称
+function ensureAccount() {
+  if (S.token) return Promise.resolve(true);
+  return new Promise(ok => {
+    const b = modal('<div id="acct">' + loginView() + '</div>', { center: true });
+    bindLogin(b, () => { closeModal(); ok(true); });
+  });
 }
 async function loadMe() { if (!S.token) return (S.me = null); try { S.me = await api('/api/me'); } catch (_) { S.me = null; } return S.me; }
 
@@ -411,10 +412,14 @@ async function renderMe() {
     <div id="myCheckins"></div>
     <hr><button class="btn ghost" data-go="rank">看看糖果榜</button>
     ${opts.length > 1 ? `<div class="field"><label>地图服务 <small>当前：${{ amap: '高德', baidu: '百度', lite: '演示地图' }[S.provider]}</small></label><div class="scope">${opts.map(([k, v]) => `<button class="mini ${prefs === k ? 'on' : ''}" data-mapset="${k}">${v}</button>`).join('')}</div></div>` : ''}
-    <div><a class="olink" id="logout">退出登录（${esc(me.phone)}）</a></div>
+    <hr><div class="field"><label>我的恢复码 <small>换手机或清了浏览器数据时用它找回账号</small></label>
+    <div class="code-box" style="margin-top:0"><b style="font-size:24px;letter-spacing:4px">${esc(me.recovery || '')}</b><button class="btn dim sm" style="width:auto;padding:0 16px" id="copyRec">复制</button></div><p class="hint">请截图或记下来，丢了无法找回。</p></div>
+    <div><a class="olink" id="logout">退出当前账号</a></div>
     <p style="margin-top:20px"><a class="ulink" data-act="notice">参与须知</a></p>`;
   root.querySelector('#saveNick').onclick = async () => { try { await api('/api/me/nickname', { nickname: root.querySelector('#nick').value }); toast('已保存'); renderMe(); } catch (e) { toast(e.message); } };
-  root.querySelector('#logout').onclick = async () => { await api('/api/auth/logout', {}).catch(() => {}); S.token = ''; S.me = null; localStorage.removeItem('cm_token'); renderMe(); };
+  const cr = root.querySelector('#copyRec'); if (cr) cr.onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(me.recovery) : Promise.reject()).then(() => toast('已复制恢复码')).catch(() => toast('请长按截图保存'));
+  root.querySelector('#logout').onclick = async () => {
+    if (!confirm('退出后需要用恢复码才能找回这个账号，确定退出吗？')) return; await api('/api/auth/logout', {}).catch(() => {}); S.token = ''; S.me = null; localStorage.removeItem('cm_token'); renderMe(); };
   root.querySelectorAll('[data-mapset]').forEach(b => b.onclick = () => { localStorage.setItem('cm_map', b.dataset.mapset); toast('正在切换地图…'); setTimeout(() => location.reload(), 600); });
   api('/api/me/checkins').then(r => {
     if (!r.list.length) return;
@@ -432,14 +437,14 @@ function defaultWindow() {
 async function renderHouse(edit) {
   const root = $('#houseContent');
   await loadMe();
-  if (!S.me) { root.innerHTML = '<p class="muted" style="margin-bottom:8px">登录后就能点亮自家门口 🎃</p>' + loginView(); return bindLogin(root, () => renderHouse()); }
+  if (!S.me) { root.innerHTML = '<p class="muted" style="margin-bottom:8px">起个昵称，就能点亮自家门口 🎃</p>' + loginView(); return bindLogin(root, () => renderHouse()); }
   const h = S.me.house;
   if (h && !edit) return renderHouseCard(root, h);
   const [ds, de] = defaultWindow();
   S.form = h ? { lat: h.lat, lng: h.lng, community: h.community, city: h.city, district: h.district } : { lat: null, lng: null, community: '', city: '', district: '' };
   root.innerHTML = `
     <h1 class="big">点亮自家门口，<br>等小朋友来敲门</h1><p class="muted">填写接待位置和时间，邀请邻居来讨糖。</p>
-    <p class="muted small" style="margin-top:14px">已登录：${esc(S.me.phone)}</p>
+    <p class="muted small" style="margin-top:14px">发糖人：${esc(S.me.nickname)}</p>
     <div class="field"><label>给糖果屋起个名字</label><input class="input" id="fName" maxlength="20" placeholder="例如：南瓜小屋" value="${esc(h ? h.name : '')}"></div>
     <div class="field"><label>接待位置</label><button class="locbox" id="fLoc">在地图上选择位置</button><p class="hint">先搜索小区，再把地图上的标记移到接待入口。</p></div>
     <div class="field"><label>小区名称</label><input class="input" id="fComm" maxlength="40" placeholder="选点后自动带出，可修改" value="${esc(h ? h.community : '')}"></div>
@@ -566,6 +571,7 @@ setInterval(() => { if (!document.hidden && !$('#page-map').classList.contains('
 // ================= 启动 =================
 (async function boot() {
   try { S.cfg = await api('/api/config'); } catch (_) {}
+  if (S.cfg.storageReady === false) toast('活动数据库还没连接，暂时只能看地图', 4000);
   const hash = location.hash.slice(1);
   const shared = /^house=(\w+)$/.exec(hash);
   go(PAGES.includes(hash) ? hash : 'map');
