@@ -3,98 +3,92 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#16131f">
+<meta name="theme-color" content="#10221B">
 <title>万圣节讨糖地图</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <div id="app">
-  <!-- 地图页 -->
+  <!-- 地图 -->
   <section class="page" id="page-map">
-    <header class="topbar">
-      <div class="brand"><span class="logo">🎃</span><h1>万圣节讨糖地图</h1></div>
-      <button class="icon-btn round" data-act="share" aria-label="分享"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button>
-    </header>
     <div class="map-wrap">
       <div id="map" class="map"></div>
-      <div class="map-overlay-top">
-        <form class="search" id="searchForm">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-          <input id="searchInput" type="search" placeholder="搜小区" enterkeyhint="search" autocomplete="off">
-        </form>
-        <div class="status-chips">
+      <div class="map-top">
+        <div class="top-row">
+          <form class="search" id="searchForm">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="searchInput" type="search" placeholder="搜小区，看看谁家在发糖" enterkeyhint="search" autocomplete="off">
+          </form>
+          <button class="round-btn" data-act="share" aria-label="分享给邻居"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button>
+        </div>
+        <div class="status-chips" role="group" aria-label="按状态筛选">
           <button class="chip giving on" data-status="giving"><i></i>发糖中</button>
           <button class="chip preparing on" data-status="preparing"><i></i>准备中</button>
         </div>
       </div>
       <div class="search-results hidden" id="searchResults"></div>
       <div class="map-ctrl">
-        <button class="ctrl" data-act="refresh" aria-label="刷新"><svg viewBox="0 0 24 24"><path d="M20 8a8 8 0 0 0-14.5-2M4 4v4h4M4 16a8 8 0 0 0 14.5 2M20 20v-4h-4"/></svg></button>
-        <div class="ctrl-group">
-          <button class="ctrl" data-act="zoomin" aria-label="放大"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-          <button class="ctrl" data-act="zoomout" aria-label="缩小"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
-        </div>
-        <button class="ctrl" data-act="locate" aria-label="定位"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></button>
+        <button class="ctrl" data-act="locate" aria-label="回到我的位置"><svg viewBox="0 0 24 24"><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></button>
+        <button class="ctrl" data-act="zoomin" aria-label="放大"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+        <button class="ctrl" data-act="zoomout" aria-label="缩小"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+        <button class="ctrl" data-act="refresh" aria-label="刷新"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></button>
       </div>
       <div class="map-tip hidden" id="mapTip"></div>
-    </div>
-    <div class="sheet" id="sheet">
-      <div class="sheet-handle" data-act="toggleSheet"></div>
-      <div class="sheet-head">
-        <div><h2>附近的糖果屋</h2><p class="muted" id="nearbyStat">0 户 · <b class="orange">0 户发糖中</b></p></div>
-        <button class="link" data-act="toggleSheet" id="sheetToggle">展开</button>
+      <div class="sheet" id="sheet">
+        <div class="sheet-head">
+          <div><h2>附近的糖果屋</h2><p class="muted" id="nearbyStat">还没有糖果屋</p></div>
+          <button class="text-btn" data-act="toggleSheet" id="sheetToggle">全部</button>
+        </div>
+        <div class="sheet-body" id="nearbyList"></div>
       </div>
-      <div class="sheet-body" id="nearbyList"></div>
     </div>
   </section>
 
-  <!-- 榜单页 -->
+  <!-- 榜单 -->
   <section class="page hidden" id="page-rank">
-    <header class="navbar"><button class="icon-btn" data-go="map" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button><h2>糖果榜单</h2><button class="icon-btn" data-act="share" aria-label="分享"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button></header>
+    <header class="navbar"><button class="icon-btn" data-go="map" aria-label="返回地图"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>糖果榜</h2><button class="icon-btn" data-act="share" aria-label="分享"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button></header>
     <div class="content">
-      <h1 class="big" id="rankTitle">糖果榜</h1>
+      <h1 class="display" id="rankTitle">糖果榜</h1>
       <p class="muted" id="rankSub"></p>
-      <div class="scope"><button class="mini on" data-scope="district">本区</button><button class="mini" data-scope="city">全市</button><button class="mini" data-scope="all">全国</button></div>
-      <div class="seg">
-        <button class="seg-btn on" data-rank="give"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>发糖榜</button>
-        <button class="seg-btn" data-rank="collect"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M8 12 3 8v8zM16 12l5-4v8z"/></svg>收获榜</button>
+      <div class="seg" role="tablist">
+        <button class="seg-btn on" data-rank="give">发糖榜</button>
+        <button class="seg-btn" data-rank="collect">收获榜</button>
       </div>
+      <div class="scope"><button class="mini on" data-scope="district">本区</button><button class="mini" data-scope="city">全市</button><button class="mini" data-scope="all">全国</button></div>
       <div id="rankList"></div>
-      <p class="muted small">同一家每天计 1 次；次数相同时，先打卡的排在前面。</p>
+      <p class="muted small rule-note">同一家每天只计 1 次。次数一样时，先打卡的排前面。</p>
     </div>
   </section>
 
   <!-- 我的 -->
   <section class="page hidden" id="page-me">
-    <header class="navbar"><button class="icon-btn" data-go="map" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button><h2>我的</h2><button class="icon-btn" data-act="share" aria-label="分享"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></button></header>
+    <header class="navbar"><button class="icon-btn" data-go="map" aria-label="返回地图"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>我的</h2><span></span></header>
     <div class="content" id="meContent"></div>
   </section>
 
   <!-- 我的糖果屋 -->
   <section class="page hidden" id="page-house">
-    <header class="navbar"><button class="icon-btn" data-go="map" aria-label="返回"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button><h2>我的糖果屋</h2><span></span></header>
+    <header class="navbar"><button class="icon-btn" data-go="map" aria-label="返回地图"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><h2>我的糖果屋</h2><span></span></header>
     <div class="content" id="houseContent"></div>
   </section>
 
-  <nav class="tabbar">
-    <button data-go="map" class="tab on"><svg viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg>地图</button>
-    <button data-go="rank" class="tab"><svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 21h8"/></svg>榜单</button>
+  <nav class="dock">
+    <button data-go="map" class="tab on"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>地图</button>
+    <button data-go="rank" class="tab"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 20v-6h4v6M11 20V9h4v11M15 20v-8h4v8"/></svg>榜单</button>
+    <button data-go="house" class="candy-cta" aria-label="我的糖果屋"><span class="wrap"><span class="cta-ico">🍬</span><span class="cta-txt">我的糖果屋</span></span></button>
     <button data-go="me" class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>我的</button>
-    <button data-go="house" class="cta"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>我的糖果屋</button>
   </nav>
 </div>
 
-<!-- 通用弹层 -->
 <div class="mask hidden" id="modal"><div class="modal" id="modalBody"></div></div>
-<!-- 选点 -->
 <div class="picker hidden" id="picker">
-  <header class="navbar"><button class="icon-btn" data-act="closePicker" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>选择接待位置</h2><span></span></header>
-  <form class="search in-picker" id="pickSearchForm"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="pickSearchInput" type="search" placeholder="先搜索小区" enterkeyhint="search"></form>
+  <header class="navbar"><button class="icon-btn" data-act="closePicker" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button><h2>把南瓜放到接待入口</h2><span></span></header>
+  <form class="search in-picker" id="pickSearchForm"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="pickSearchInput" type="search" placeholder="先搜索你的小区" enterkeyhint="search"></form>
   <div class="search-results in-picker hidden" id="pickResults"></div>
-  <div class="picker-map"><div id="pickMap" class="map"></div><div class="center-pin">🎃</div></div>
-  <div class="picker-foot"><p id="pickAddr" class="muted">拖动地图，把南瓜对准接待入口</p><button class="btn primary" data-act="confirmPick">确定这里</button></div>
+  <div class="picker-map"><div id="pickMap" class="map"></div><div class="center-pin" aria-hidden="true">🎃</div></div>
+  <div class="picker-foot"><p id="pickAddr" class="muted">拖动地图，让南瓜对准你接待小朋友的位置</p><button class="btn primary" data-act="confirmPick">就放在这里</button></div>
 </div>
-<div class="toast hidden" id="toast"></div>
+<div class="toast hidden" id="toast" role="status"></div>
 
 <script src="app.js"></script>
 </body>

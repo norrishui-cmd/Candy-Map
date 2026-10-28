@@ -43,6 +43,7 @@ function boom() {
   document.body.appendChild(b); setTimeout(() => b.remove(), 2600);
 }
 const fmtTime = ts => { const d = new Date(ts); return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const fmtShort = ts => { const d = new Date(ts), n = new Date(), hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; if (d.toDateString() === n.toDateString()) return '今天 ' + hm; const t = new Date(n); t.setDate(t.getDate() + 1); if (d.toDateString() === t.toDateString()) return '明天 ' + hm; return `${d.getMonth() + 1}/${d.getDate()} ${hm}`; };
 const fmtDist = m => m == null ? '' : m < 1000 ? m + 'm' : (m / 1000).toFixed(1) + 'km';
 const STATUS_TEXT = { giving: '发糖中', preparing: '准备中', ended: '已结束', off: '未点亮' };
 
@@ -159,7 +160,7 @@ function BaiduAdapter(el, center) {
 
 // 未配置地图 Key 或 SDK 加载失败时的备用地图：网格底图 + 拖拽/缩放，保证功能可用
 function LiteAdapter(el, center) {
-  el.innerHTML = '<div class="lite"><div class="layer"></div><div class="wm">演示地图 · 配置高德/百度 Key 后显示真实地图</div></div>';
+  el.innerHTML = '<div class="lite"><div class="layer"></div><div class="wm">演示地图，配置地图 Key 后显示真实街道</div></div>';
   const root = el.firstChild, layer = root.firstChild;
   let c = Object.assign({}, center), z = 16, moveFns = [], items = [];
   const T = 256, proj = (p, zz) => { const s = T * 2 ** zz, x = (p.lng + 180) / 360 * s, sin = Math.sin(p.lat * PI / 180); return { x, y: (.5 - Math.log((1 + sin) / (1 - sin)) / (4 * PI)) * s }; };
@@ -237,14 +238,17 @@ async function loadNearby() {
 }
 function renderNearby() {
   const n = S.houses.length, g = S.houses.filter(h => h.status === 'giving').length;
-  $('#nearbyStat').innerHTML = `${n} 户 · <b class="orange">${g} 户发糖中</b>`;
+  $('#nearbyStat').textContent = n ? `${n} 户糖果屋，${g} 户正在发糖` : '这一片还没有人点亮';
   $('#nearbyList').innerHTML = n ? S.houses.map(h => `
-    <button class="hcard ${h.status}" data-house="${h.id}">
-      <div class="av">${h.status === 'giving' ? '🍬' : '🎃'}</div>
-      <div class="info"><b>${esc(h.name)}</b><div class="meta"><span class="tag ${h.status}">${STATUS_TEXT[h.status]}</span> ${esc(h.community)} ${esc(h.building)}栋 · ${esc(h.spot)}</div>
-      <div class="meta">${h.status === 'giving' ? '发到 ' + fmtTime(h.endAt) : fmtTime(h.startAt) + ' 开始'} · 已收 ${h.received} 次打卡</div></div>
-      <span class="dist">${fmtDist(h.distance)}</span>
-    </button>`).join('') : `<div class="empty"><div class="ghost">👻</div><h3>附近还没有糖果屋</h3><p class="muted">试试搜索或移动地图。</p></div>`;
+    <button class="ticket ${h.status}" data-house="${h.id}">
+      <span class="stub"><span class="emo">${h.status === 'giving' ? '🍬' : '🎃'}</span><span class="dist">${fmtDist(h.distance)}</span></span>
+      <span class="body">
+        <b>${esc(h.name)}</b>
+        <span class="line"><span class="tag ${h.status}">${STATUS_TEXT[h.status]}</span> ${esc(h.community)} ${esc(h.building)}栋</span>
+        <span class="line">${esc(h.spot)}</span>
+        <span class="line">${h.status === 'giving' ? fmtShort(h.endAt) + ' 收摊' : fmtShort(h.startAt) + ' 开门'}，${h.received} 人打卡</span>
+      </span>
+    </button>`).join('') : `<div class="empty-ticket"><span class="emo">👻</span><span><b>附近还没有糖果屋</b>搜一下小区，或拖动地图看看别处。</span></div>`;
 }
 async function initMap() {
   const center = JSON.parse(localStorage.getItem('cm_center') || 'null') || DEFAULT_CENTER;
@@ -291,15 +295,15 @@ async function openHouse(hOrId) {
     <dl class="detail-grid">
       <dt>位置</dt><dd>${esc(h.community)} ${esc(h.building)}栋${h.unit ? esc(h.unit) + '单元' : ''}${h.door ? ' ' + esc(h.door) : ''}</dd>
       <dt>接待点</dt><dd>${esc(h.spot)}</dd>
-      <dt>时间</dt><dd>${fmtTime(h.startAt)} – ${fmtTime(h.endAt)}</dd>
+      <dt>时间</dt><dd>${fmtTime(h.startAt)} 到 ${fmtTime(h.endAt)}</dd>
       ${h.candy ? `<dt>糖果</dt><dd>${esc(h.candy)}</dd>` : ''}
       <dt>主人</dt><dd>${esc(h.host)}</dd>
       ${dist != null ? `<dt>距离</dt><dd>${fmtDist(dist)}</dd>` : ''}
       <dt>打卡</dt><dd>已有 ${h.received} 次</dd>
     </dl>
     <div class="row">
-      <button class="btn dim" data-a="nav">🧭 导航过去</button>
-      ${h.status === 'giving' ? `<button class="btn primary" data-a="checkin" ${h.checkedToday ? 'disabled' : ''}>${h.checkedToday ? '今天已打卡' : '🍭 打卡收糖'}</button>` : `<button class="btn" disabled>还没开始发糖</button>`}
+      <button class="btn" data-a="nav">导航过去</button>
+      ${h.status === 'giving' ? `<button class="btn primary" data-a="checkin" ${h.checkedToday ? 'disabled' : ''}>${h.checkedToday ? '今天已打卡' : '打卡收糖'}</button>` : `<button class="btn" disabled>还没开门</button>`}
     </div>`);
   body.onclick = e => {
     const a = e.target.closest('[data-a]'); if (!a) return;
@@ -332,8 +336,8 @@ function navTo(h) {
 
 async function checkin(h) {
   if (!S.token) { await ensureAccount(); }
-  const body = modal(`<h3>🍭 打卡收糖</h3><p class="p">向「${esc(h.name)}」的主人要 4 位打卡暗号，输入后就能记录这次收获。</p>
-    <div class="code-input"><input id="ciCode" inputmode="numeric" maxlength="4" pattern="\\d*" placeholder="····"></div>
+  const body = modal(`<h3>打卡收糖</h3><p class="p">向「${esc(h.name)}」的主人要 4 位打卡暗号，输入后就能记录这次收获。</p>
+    <div class="code-input"><input id="ciCode" inputmode="numeric" maxlength="4" pattern="\\d*" placeholder="0000"></div>
     <button class="btn primary" id="ciGo">确认打卡</button>`, { center: true });
   const inp = body.querySelector('#ciCode'); setTimeout(() => inp.focus(), 50);
   body.querySelector('#ciGo').onclick = async () => {
@@ -353,29 +357,33 @@ async function renderRank() {
   if (scope === 'district' && !district) scope = city ? 'city' : 'all';
   if (scope === 'city' && !city) scope = 'all';
   document.querySelectorAll('[data-scope]').forEach(b => { b.classList.toggle('on', b.dataset.scope === scope); b.classList.toggle('hidden', (b.dataset.scope === 'district' && !district) || (b.dataset.scope === 'city' && !city)); });
-  $('#rankTitle').textContent = scope === 'district' ? `${city} · ${district}糖果榜` : scope === 'city' ? `${city}糖果榜` : '全国糖果榜';
-  $('#rankSub').textContent = `${new Date().getFullYear()}年 · ${scope === 'all' ? '统计所有打卡' : '只统计在本' + (scope === 'district' ? '区' : '市') + '完成的打卡'}。`;
+  $('#rankTitle').textContent = scope === 'district' ? `${district}糖果榜` : scope === 'city' ? `${city}糖果榜` : '全国糖果榜';
+  $('#rankSub').textContent = `${new Date().getFullYear()}年万圣节，${scope === 'all' ? '统计全部打卡' : '只算在' + (scope === 'district' ? city + district : city) + '完成的打卡'}。`;
   document.querySelectorAll('[data-rank]').forEach(b => b.classList.toggle('on', b.dataset.rank === S.rankType));
   const qs = `type=${S.rankType}` + (scope !== 'all' ? `&city=${encodeURIComponent(city)}` : '') + (scope === 'district' ? `&district=${encodeURIComponent(district)}` : '');
   let list = [];
   try { list = (await api('/api/rank?' + qs)).list; } catch (e) { toast(e.message); }
-  $('#rankList').innerHTML = list.length ? list.map(r => `<div class="rank-row ${r.me ? 'me' : ''}"><div class="rank-no">${r.rank <= 3 ? ['🥇', '🥈', '🥉'][r.rank - 1] : r.rank}</div><div class="info"><b>${esc(r.name)}${r.me ? ' <span class="tag giving">我</span>' : ''}</b>${r.sub ? `<span class="muted small">${esc(r.sub)}</span>` : ''}</div><div class="rank-count">${r.count}<small>次</small></div></div>`).join('')
-    : `<div class="empty"><h3>第一份甜蜜，等你来记录</h3><p class="muted">成功打卡后就会上榜。</p><button class="btn ghost" data-go="map" style="margin-top:16px">去地图看看</button></div>`;
+  const unit = S.rankType === 'give' ? '次' : '颗';
+  const faces = S.rankType === 'give' ? ['🏠', '🏡', '🏘️'] : ['🦇', '🧙', '👻'];
+  const pod = (r, i) => r ? `<div class="pod p${i + 1} ${r.me ? 'me' : ''}"><span class="face">${faces[i]}</span><span class="who">${esc(r.name)}</span><span class="sub">${esc((r.sub || '').replace(/ · /g, '，'))}</span><div class="block">${r.count}<small>${unit}</small></div></div>` : '<div></div>';
+  const top = list.slice(0, 3), rest = list.slice(3);
+  $('#rankList').innerHTML = list.length
+    ? `<div class="podium">${pod(top[1], 1)}${pod(top[0], 0)}${pod(top[2], 2)}</div>` + rest.map(r => `<div class="rank-row ${r.me ? 'me' : ''}"><div class="rank-no">${r.rank}</div><div class="info"><b>${esc(r.name)}${r.me ? '（我）' : ''}</b>${r.sub ? `<span class="muted small">${esc(r.sub.replace(/ · /g, '，'))}</span>` : ''}</div><div class="rank-count">${r.count}<small>${unit}</small></div></div>`).join('')
+    : `<div class="empty"><div class="emo">🏆</div><h3>领奖台还空着</h3><p class="muted">${S.rankType === 'give' ? '点亮糖果屋，有小朋友来打卡就会上榜。' : '去邻居家打卡收糖，收获越多排名越靠前。'}</p><button class="btn ghost" data-go="${S.rankType === 'give' ? 'house' : 'map'}" style="margin-top:16px">${S.rankType === 'give' ? '点亮我的糖果屋' : '去地图找糖果屋'}</button></div>`;
 }
 document.querySelectorAll('[data-rank]').forEach(b => b.addEventListener('click', () => { S.rankType = b.dataset.rank; renderRank(); }));
 document.querySelectorAll('[data-scope]').forEach(b => b.addEventListener('click', () => { S.rankScope = b.dataset.scope; renderRank(); }));
 
 // ================= 账号（免短信：起个昵称即可，恢复码用于换设备） =================
 function loginView() {
-  return `<h1 class="big">给这趟讨糖，起个名字</h1><p class="muted">留个手机号就能开始，记录收获，和邻居一起登上糖果榜。</p>
+  return `<h1 class="form-title">先登记一下，<br>再出门讨糖</h1><p class="muted">留个手机号就能打卡、点亮糖果屋，和邻居一起上榜。</p>
     <div class="field"><label>手机号</label><input class="input" id="lgPhone" type="tel" inputmode="numeric" maxlength="11" placeholder="请输入 11 位手机号"><p class="hint">不会公开显示，也不需要验证码。</p></div>
     <div class="field"><label>榜单昵称 <small>选填</small></label><input class="input" id="lgNick" maxlength="16" placeholder="例如：南瓜小队"><p class="hint">昵称会公开显示，不填会随机起一个。</p></div>
-    <label class="check"><input type="checkbox" id="lgAgree"><span>我已阅读并同意<a class="ulink" data-act="privacy" style="font-size:14px">个人信息说明</a>，同意活动组织者保存我的手机号，用于活动联系和账号找回。</span></label>
-    <div id="lgPriv" class="hidden" style="background:var(--panel2);border-radius:16px;padding:14px 16px;margin-bottom:14px">${PRIVACY}</div>
-    <button class="btn primary" id="lgGo">开始讨糖</button>
+    <label class="check"><input type="checkbox" id="lgAgree"><span>我已阅读并同意<a class="link" data-act="privacy">个人信息说明</a>，同意活动组织者保存我的手机号，用于活动联系和账号找回。</span></label>
+    <div id="lgPriv" class="hidden priv-box">${PRIVACY}</div>
+    <button class="btn primary" id="lgGo">登记并开始</button>
     <div id="lgRec" class="hidden"><div class="field"><label>恢复码</label><input class="input" id="lgCode" maxlength="9" placeholder="8 位恢复码" style="text-transform:uppercase"><p class="hint">注册时在「我的」页面显示过。</p></div><button class="btn dim" id="lgRecGo">找回账号</button></div>
-    <p style="margin-top:20px"><a class="ulink" id="lgRecShow">注册过了？用恢复码找回</a></p>
-    <p style="margin-top:20px"><a class="ulink" data-act="notice">参与须知</a></p>`;
+    <p style="margin-top:22px;display:flex;justify-content:space-between"><a class="link" id="lgRecShow">注册过了？用恢复码找回</a><a class="link" data-act="notice">参与须知</a></p>`;
 }
 async function setToken(t) { S.token = t; localStorage.setItem('cm_token', t); await loadMe(); }
 function bindLogin(root, done) {
@@ -410,19 +418,18 @@ async function renderMe() {
   const me = S.me, prefs = localStorage.getItem('cm_map') || 'auto';
   const opts = [['auto', '自动'], ...(S.cfg.amapKey ? [['amap', '高德']] : []), ...(S.cfg.baiduAk ? [['baidu', '百度']] : [])];
   root.innerHTML = `
-    <h1 class="big">${esc(me.nickname)}</h1><p class="muted">起个喜欢的名字，让邻居认出你。</p>
-    <div class="field"><label>榜单昵称</label><input class="input" id="nick" maxlength="16" value="${esc(me.nickname)}"><p class="hint">昵称会公开显示，请勿填写手机号。</p></div>
-    <button class="btn primary" id="saveNick">保存昵称</button>
-    <hr><p class="muted">${new Date().getFullYear()}年 · 我的全部记录</p>
-    <div class="stats"><span>发出<b>${me.given}</b>次</span><span>收获<b>${me.collected}</b>次</span></div>
+    <div class="pass">
+      <div class="meta">${new Date().getFullYear()} 万圣节讨糖证</div>
+      <div class="who">${esc(me.nickname)}</div>
+      <div class="meta">绑定手机 ${esc(me.phone)}</div>
+      <div class="counts"><div class="count give"><b>${me.given}</b><span>我家发出</span></div><div class="count get"><b>${me.collected}</b><span>我收获的</span></div></div>
+    </div>
     <div id="myCheckins"></div>
-    <hr><button class="btn ghost" data-go="rank">看看糖果榜</button>
-    ${opts.length > 1 ? `<div class="field"><label>地图服务 <small>当前：${{ amap: '高德', baidu: '百度', lite: '演示地图' }[S.provider]}</small></label><div class="scope">${opts.map(([k, v]) => `<button class="mini ${prefs === k ? 'on' : ''}" data-mapset="${k}">${v}</button>`).join('')}</div></div>` : ''}
-    <hr><div class="field"><label>我的恢复码 <small>换手机或清了浏览器数据时用它找回账号</small></label>
-    <div class="code-box" style="margin-top:0"><b style="font-size:24px;letter-spacing:4px">${esc(me.recovery || '')}</b><button class="btn dim sm" style="width:auto;padding:0 16px" id="copyRec">复制</button></div><p class="hint">请截图或记下来，丢了无法找回。</p></div>
-    <p class="muted small">绑定手机：${esc(me.phone)}</p>
-    <div><a class="olink" id="logout">退出当前账号</a></div>
-    <p style="margin-top:20px"><a class="ulink" data-act="notice">参与须知</a></p>`;
+    <div class="field"><label>榜单昵称 <small>会公开显示</small></label><div class="row"><input class="input" id="nick" maxlength="16" value="${esc(me.nickname)}" style="flex:2"><button class="btn sm" id="saveNick" style="height:52px">保存</button></div></div>
+    ${opts.length > 1 ? `<div class="field"><label>地图 <small>当前用的是${{ amap: '高德', baidu: '百度', lite: '演示地图' }[S.provider]}</small></label><div class="scope">${opts.map(([k, v]) => `<button class="mini ${prefs === k ? 'on' : ''}" data-mapset="${k}">${v}</button>`).join('')}</div></div>` : ''}
+    <div class="field"><label>恢复码 <small>换手机时用它找回账号</small></label>
+    <div class="recov"><b>${esc(me.recovery || '')}</b><button class="btn sm" style="width:auto;padding:0 18px" id="copyRec">复制</button></div><p class="hint">请截图保存，丢了无法找回。</p></div>
+    <p style="margin-top:26px;display:flex;justify-content:space-between"><a class="link warn" id="logout">退出账号</a><a class="link" data-act="notice">参与须知</a></p>`;
   root.querySelector('#saveNick').onclick = async () => { try { await api('/api/me/nickname', { nickname: root.querySelector('#nick').value }); toast('已保存'); renderMe(); } catch (e) { toast(e.message); } };
   const cr = root.querySelector('#copyRec'); if (cr) cr.onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(me.recovery) : Promise.reject()).then(() => toast('已复制恢复码')).catch(() => toast('请长按截图保存'));
   root.querySelector('#logout').onclick = async () => {
@@ -430,7 +437,7 @@ async function renderMe() {
   root.querySelectorAll('[data-mapset]').forEach(b => b.onclick = () => { localStorage.setItem('cm_map', b.dataset.mapset); toast('正在切换地图…'); setTimeout(() => location.reload(), 600); });
   api('/api/me/checkins').then(r => {
     if (!r.list.length) return;
-    $('#myCheckins').innerHTML = '<p class="muted small" style="margin:8px 0">最近收获</p>' + r.list.slice(0, 10).map(c => `<div class="rank-row"><div class="rank-no">🍬</div><div class="info"><b>${esc(c.house)}</b><span class="muted small">${esc(c.community)} · ${fmtTime(c.at)}</span></div></div>`).join('');
+    $('#myCheckins').innerHTML = '<p class="muted small" style="margin:4px 0 8px">最近收获</p>' + r.list.slice(0, 10).map(c => `<div class="rank-row"><div class="rank-no">🍬</div><div class="info"><b>${esc(c.house)}</b><span class="muted small">${esc(c.community)}，${fmtTime(c.at)}</span></div></div>`).join('');
   }).catch(() => {});
 }
 
@@ -444,16 +451,16 @@ function defaultWindow() {
 async function renderHouse(edit) {
   const root = $('#houseContent');
   await loadMe();
-  if (!S.me) { root.innerHTML = '<p class="muted" style="margin-bottom:8px">起个昵称，就能点亮自家门口 🎃</p>' + loginView(); return bindLogin(root, () => renderHouse()); }
+  if (!S.me) { root.innerHTML = loginView(); return bindLogin(root, () => renderHouse()); }
   const h = S.me.house;
   if (h && !edit) return renderHouseCard(root, h);
   const [ds, de] = defaultWindow();
   S.form = h ? { lat: h.lat, lng: h.lng, community: h.community, city: h.city, district: h.district } : { lat: null, lng: null, community: '', city: '', district: '' };
   root.innerHTML = `
-    <h1 class="big">点亮自家门口，<br>等小朋友来敲门</h1><p class="muted">填写接待位置和时间，邀请邻居来讨糖。</p>
+    <h1 class="form-title">把自家门口<br>变成一间糖果屋</h1><p class="muted">填好接待位置和发糖时间，点亮后邻居就能在地图上找到你。</p>
     <p class="muted small" style="margin-top:14px">发糖人：${esc(S.me.nickname)}</p>
     <div class="field"><label>给糖果屋起个名字</label><input class="input" id="fName" maxlength="20" placeholder="例如：南瓜小屋" value="${esc(h ? h.name : '')}"></div>
-    <div class="field"><label>接待位置</label><button class="locbox" id="fLoc">在地图上选择位置</button><p class="hint">先搜索小区，再把地图上的标记移到接待入口。</p></div>
+    <div class="field"><label>接待位置</label><button class="locbox" id="fLoc">＋ 在地图上放置南瓜</button><p class="hint">先搜索小区，再把地图上的标记移到接待入口。</p></div>
     <div class="field"><label>小区名称</label><input class="input" id="fComm" maxlength="40" placeholder="选点后自动带出，可修改" value="${esc(h ? h.community : '')}"></div>
     <div class="row"><div class="field"><label>楼栋</label><input class="input" id="fBld" maxlength="10" placeholder="例如：5" value="${esc(h ? h.building : '')}"></div>
     <div class="field"><label>单元 <small>选填</small></label><input class="input" id="fUnit" maxlength="10" placeholder="例如：1" value="${esc(h ? h.unit || '' : '')}"></div></div>
@@ -463,10 +470,10 @@ async function renderHouse(edit) {
     <div class="row"><div class="field"><label>开始发糖</label><input class="input" id="fStart" type="datetime-local" value="${toLocalInput(h ? h.startAt : ds)}"></div>
     <div class="field"><label>结束</label><input class="input" id="fEnd" type="datetime-local" value="${toLocalInput(h ? h.endAt : de)}"></div></div>
     <div class="field"><label>准备了什么糖 <small>选填</small></label><input class="input" id="fCandy" maxlength="40" placeholder="例如：独立包装软糖、巧克力" value="${esc(h ? h.candy : '')}"><p class="hint">建议注明是否含坚果、乳制品等常见过敏原。</p></div>
-    <label class="check"><input type="checkbox" id="fAgree" ${h ? 'checked' : ''}><span>我已阅读并同意<a class="ulink" data-act="notice" style="font-size:14px">参与须知</a>，会准备包装完好、在保质期内的食品。</span></label>
+    <label class="check"><input type="checkbox" id="fAgree" ${h ? 'checked' : ''}><span>我已阅读并同意<a class="link" data-act="notice">参与须知</a>，会准备包装完好、在保质期内的食品。</span></label>
     <button class="btn primary" id="fSave">${h ? '保存修改' : '保存糖果屋'}</button>
-    ${h ? '<button class="btn dim" id="fCancel" style="margin-top:10px">取消</button>' : ''}`;
-  const syncLoc = () => { const b = root.querySelector('#fLoc'); if (S.form.lat) { b.classList.add('set'); b.innerHTML = `📍 ${esc([S.form.city, S.form.district, S.form.community].filter(Boolean).join(' · ') || '已选择位置')}<br><span class="muted small">点击重新选择</span>`; } };
+    ${h ? '<button class="btn" id="fCancel" style="margin-top:10px">取消</button>' : ''}`;
+  const syncLoc = () => { const b = root.querySelector('#fLoc'); if (S.form.lat) { b.classList.add('set'); b.innerHTML = `📍 ${esc([S.form.city, S.form.district, S.form.community].filter(Boolean).join(' ') || '已选择位置')}<br><span class="muted small">点一下重新放置</span>`; } };
   syncLoc();
   root.querySelector('#fLoc').onclick = () => openPicker(p => { Object.assign(S.form, p); if (p.community && !root.querySelector('#fComm').value) root.querySelector('#fComm').value = p.community; syncLoc(); });
   if (h) root.querySelector('#fCancel').onclick = () => renderHouse();
@@ -483,29 +490,32 @@ async function renderHouse(edit) {
 }
 function renderHouseCard(root, h) {
   const lit = h.lit && h.status !== 'ended';
+  const tip = lit ? (h.status === 'giving' ? '门开着，邻居能在地图上看到你。' : '已点亮，到开门时间会自动变成「发糖中」。') : '点亮后，糖果屋会出现在附近邻居的地图上。';
   root.innerHTML = `
-    <div class="hero ${lit ? 'lit' : ''}"><div class="glow">🎃</div>
-      <span class="tag ${h.status}">${STATUS_TEXT[h.status]}</span>
+    <div class="door ${lit ? 'lit' : ''}">
+      <div class="lamp">🎃</div>
       <h3>${esc(h.name)}</h3>
-      <p class="muted">${esc(h.community)} ${esc(h.building)}栋${h.unit ? esc(h.unit) + '单元' : ''} · ${esc(h.spot)}</p>
-      <p class="muted small">${fmtTime(h.startAt)} – ${fmtTime(h.endAt)}</p>
-      <div class="code-box"><div><div class="muted small">打卡暗号</div><b>${esc(h.code)}</b></div><div class="muted small" style="text-align:right">小朋友来领糖时<br>告诉他们这个数字</div></div>
+      <div class="meta"><span class="tag ${h.status}">${STATUS_TEXT[h.status]}</span></div>
+      <div class="meta" style="margin-top:6px">${esc(h.community)} ${esc(h.building)}栋${h.unit ? esc(h.unit) + '单元' : ''}，${esc(h.spot)}</div>
+      <div class="meta">${fmtTime(h.startAt)} 到 ${fmtTime(h.endAt)}</div>
+      <div class="code-stub"><div><span>打卡暗号</span><br><b>${esc(h.code)}</b></div><span style="text-align:right">小朋友来领糖时<br>把这 4 个数字告诉他们</span></div>
     </div>
-    <button class="btn ${lit ? 'dim' : 'primary'}" id="hLight">${lit ? '熄灭糖果屋' : '🎃 点亮糖果屋'}</button>
-    ${lit ? `<button class="btn dim" id="hPause" style="margin-top:10px">${h.paused ? '▶️ 继续发糖' : '⏸ 糖发完了，暂停一下'}</button>` : ''}
-    <p class="hint" style="margin-top:12px">${lit ? (h.status === 'giving' ? '正在发糖，邻居能在地图上看到你。' : '已点亮，到开始时间后自动变成「发糖中」。') : '点亮后，糖果屋会出现在附近邻居的地图上。'}</p>
-    <div class="stats" style="margin-top:20px"><span>已收到<b>${h.received}</b>次打卡</span></div>
-    <hr><div class="btns"><button class="btn dim sm" id="hEdit">修改信息</button><button class="btn dim sm" id="hShare">分享给邻居</button></div>
-    <div class="btns"><button class="btn dim sm" id="hView">在地图上查看</button><button class="btn dim sm" id="hDel" style="color:var(--red)">删除糖果屋</button></div>`;
+    <button class="btn ${lit ? '' : 'primary'}" id="hLight">${lit ? '熄灭糖果屋' : '点亮糖果屋'}</button>
+    ${lit ? `<button class="btn ${h.paused ? 'pink' : ''}" id="hPause" style="margin-top:10px">${h.paused ? '继续发糖' : '糖发完了，先暂停'}</button>` : ''}
+    <p class="hint" style="margin-top:12px;text-align:center">${tip}</p>
+    <p class="house-stat">已经有<b>${h.received}</b>位小朋友来打卡</p>
+    <hr>
+    <div class="btns"><button class="btn sm" id="hEdit">修改信息</button><button class="btn sm" id="hShare">分享给邻居</button></div>
+    <div class="btns"><button class="btn sm" id="hView">在地图上看</button><button class="btn sm" id="hDel" style="color:var(--warn)">删除糖果屋</button></div>`;
   root.querySelector('#hLight').onclick = async () => {
-    try { const r = await api('/api/house/light', { lit: !lit, paused: false }); if (r.lit) { boom(); toast('糖果屋已点亮！'); } else toast('已熄灭'); renderHouse(); } catch (e) { toast(e.message); }
+    try { const r = await api('/api/house/light', { lit: !lit, paused: false }); if (r.lit) { boom(); toast('糖果屋点亮了'); } else toast('已熄灭'); renderHouse(); } catch (e) { toast(e.message); }
   };
   const pb = root.querySelector('#hPause'); if (pb) pb.onclick = async () => { try { await api('/api/house/light', { lit: true, paused: !h.paused }); renderHouse(); } catch (e) { toast(e.message); } };
   root.querySelector('#hEdit').onclick = () => renderHouse(true);
   root.querySelector('#hShare').onclick = () => share(`我在「${h.community}」点亮了糖果屋「${h.name}」，${fmtTime(h.startAt)} 开始发糖，来讨糖吧！`, '#house=' + h.id);
   root.querySelector('#hView').onclick = () => { go('map'); S.map && S.map.setCenter(h, 17); };
   root.querySelector('#hDel').onclick = () => {
-    const b = modal('<h3>删除糖果屋？</h3><p class="p">删除后地图上不再显示，已收到的打卡记录仍保留在榜单中。</p><div class="row"><button class="btn dim" data-close>再想想</button><button class="btn primary" id="delOk">删除</button></div>', { center: true });
+    const b = modal('<h3>删除这间糖果屋？</h3><p class="p">删除后地图上不再显示，已收到的打卡记录仍保留在榜单中。</p><div class="row"><button class="btn" data-close>先不删</button><button class="btn pink" id="delOk">删除</button></div>', { center: true });
     b.querySelector('#delOk').onclick = async () => { await api('/api/house/delete', {}).catch(() => {}); closeModal(); toast('已删除'); renderHouse(); };
   };
 }
@@ -549,7 +559,7 @@ const NOTICE = `<h3>参与须知</h3>
 <p class="p"><b>尊重邻居</b><br>只拜访地图上「发糖中」的糖果屋，按住户公布的接待位置和时间前往；熄灯或暂停时请勿打扰。保持安静，遵守小区管理规定。</p>
 <p class="p"><b>信息与隐私</b><br>门牌和单元默认不公开，住户可自行选择。昵称会在榜单公开显示；注册用的手机号不公开，用途见「个人信息说明」。</p>
 <p class="p"><b>平台责任</b><br>平台提供信息展示与查找，不保证住户信息的真实性、实时性及食品安全，请自行核实。平台依法应承担的责任不因此免除。</p>
-<button class="btn dim" data-close>我知道了</button>`;
+<button class="btn" data-close>我知道了</button>`;
 
 // ================= 路由 / 事件 =================
 const PAGES = ['map', 'rank', 'me', 'house'];
@@ -572,9 +582,9 @@ document.addEventListener('click', e => {
   if (act === 'zoomin') S.map && S.map.zoomIn();
   if (act === 'zoomout') S.map && S.map.zoomOut();
   if (act === 'locate') locate().then(p => p && S.map.setCenter(p, 17));
-  if (act === 'toggleSheet') { const s = $('#sheet'); s.classList.toggle('open'); $('#sheetToggle').textContent = s.classList.contains('open') ? '收起' : '展开'; }
+  if (act === 'toggleSheet') { const s = $('#sheet'); s.classList.toggle('open'); $('#sheetToggle').textContent = s.classList.contains('open') ? '收起' : '全部'; }
   if (act === 'notice') { e.preventDefault(); modal(NOTICE); }
-  if (act === 'privacy') { e.preventDefault(); const box = a.closest('.content, .modal').querySelector('#lgPriv'); if (box) box.classList.toggle('hidden'); else modal(PRIVACY + '<button class="btn dim" data-close>我知道了</button>'); }
+  if (act === 'privacy') { e.preventDefault(); const scope = a.closest('.content, .modal'); const box = scope && scope.querySelector('#lgPriv'); if (box) box.classList.toggle('hidden'); else modal(PRIVACY + '<button class="btn" data-close>我知道了</button>'); }
   if (act === 'closePicker') $('#picker').classList.add('hidden');
   if (act === 'confirmPick') { if (!pickInfo.lat) return; $('#picker').classList.add('hidden'); pickCb && pickCb(Object.assign({}, pickInfo)); }
 });
